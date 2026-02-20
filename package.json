@@ -1,0 +1,63 @@
+{
+  "name": "worktree-rainbow",
+  "displayName": "Worktree Rainbow",
+  "description": "Automatically assigns a random color to the title bar and status bar for each git branch/worktree",
+  "version": "0.1.0",
+  "license": "MIT",
+  "publisher": "kalifudge401",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kalifudge401/worktree-rainbow"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "worktreeRainbow.reroll",
+        "title": "Worktree Rainbow: Reroll Color"
+      },
+      {
+        "command": "worktreeRainbow.clear",
+        "title": "Worktree Rainbow: Clear Color"
+      }
+    ],
+    "configuration": {
+      "title": "Worktree Rainbow",
+      "properties": {
+        "worktreeRainbow.defaultBranches": {
+          "type": "array",
+          "default": [
+            "main",
+            "master"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Branches that should not be colored (keep default theme)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  }
+}
