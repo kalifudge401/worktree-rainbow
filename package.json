@@ -46,6 +46,17 @@
             "type": "string"
           },
           "description": "Branches that should not be colored (keep default theme)"
+        },
+        "worktreeRainbow.targetSettings": {
+          "type": "string",
+          "enum": ["user", "workspace", "workspaceFolder"],
+          "enumDescriptions": [
+            "Write to user settings (global, applies across all workspaces)",
+            "Write to workspace settings (.vscode/settings.json)",
+            "Write to workspace folder settings (multi-root workspaces)"
+          ],
+          "default": "user",
+          "description": "Where to write color customizations"
         }
       }
     }
