@@ -40,6 +40,16 @@ function isDefaultBranch(branchName: string): boolean {
   return defaults.includes(branchName);
 }
 
+function getConfigTarget(): vscode.ConfigurationTarget {
+  const config = vscode.workspace.getConfiguration("worktreeRainbow");
+  const target = config.get<string>("targetSettings", "user");
+  switch (target) {
+    case "workspace":       return vscode.ConfigurationTarget.Workspace;
+    case "workspaceFolder": return vscode.ConfigurationTarget.WorkspaceFolder;
+    default:                return vscode.ConfigurationTarget.Global;
+  }
+}
+
 function resolveRepository(git: GitAPI): Repository | undefined {
   const uri = vscode.window.activeTextEditor?.document.uri;
   if (uri) {
@@ -61,14 +71,58 @@ function resolveRepository(git: GitAPI): Repository | undefined {
   return git.repositories[0];
 }
 
+const MANAGED_KEYS = [
+  "titleBar.activeBackground",
+  "titleBar.activeForeground",
+  "titleBar.inactiveBackground",
+  "titleBar.inactiveForeground",
+  "statusBar.background",
+  "statusBar.foreground",
+];
+
+async function clearManagedKeys(
+  skipTarget: vscode.ConfigurationTarget | null,
+): Promise<void> {
+  const config = vscode.workspace.getConfiguration("workbench");
+  const inspected = config.inspect<Record<string, unknown>>("colorCustomizations");
+
+  const scopeMap: [vscode.ConfigurationTarget, Record<string, unknown> | undefined][] = [
+    [vscode.ConfigurationTarget.Global,          inspected?.globalValue],
+    [vscode.ConfigurationTarget.Workspace,       inspected?.workspaceValue],
+    [vscode.ConfigurationTarget.WorkspaceFolder, inspected?.workspaceFolderValue],
+  ];
+
+  for (const [t, raw] of scopeMap) {
+    if (t === skipTarget) continue;
+    if (!raw) continue;
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (!MANAGED_KEYS.includes(key)) cleaned[key] = value;
+    }
+    await config.update(
+      "colorCustomizations",
+      Object.keys(cleaned).length > 0 ? cleaned : undefined,
+      t,
+    );
+  }
+}
+
 async function applyColor(color: string): Promise<void> {
   const fg = contrastForeground(color);
   const inactiveBg = darken(color, 0.3);
   const inactiveFg = contrastForeground(inactiveBg);
 
+  const writeTarget = getConfigTarget();
+  await clearManagedKeys(writeTarget);
+
   const config = vscode.workspace.getConfiguration("workbench");
-  const existing =
-    config.get<Record<string, unknown>>("colorCustomizations") ?? {};
+  const inspected = config.inspect<Record<string, unknown>>("colorCustomizations");
+  const existing: Record<string, unknown> =
+    writeTarget === vscode.ConfigurationTarget.Global
+      ? (inspected?.globalValue ?? {})
+      : writeTarget === vscode.ConfigurationTarget.Workspace
+        ? (inspected?.workspaceValue ?? {})
+        : (inspected?.workspaceFolderValue ?? {});
 
   const updated: Record<string, unknown> = {
     ...existing,
@@ -80,41 +134,11 @@ async function applyColor(color: string): Promise<void> {
     "statusBar.foreground": fg,
   };
 
-  await config.update(
-    "colorCustomizations",
-    updated,
-    vscode.ConfigurationTarget.Workspace,
-  );
+  await config.update("colorCustomizations", updated, writeTarget);
 }
 
-const MANAGED_KEYS = [
-  "titleBar.activeBackground",
-  "titleBar.activeForeground",
-  "titleBar.inactiveBackground",
-  "titleBar.inactiveForeground",
-  "statusBar.background",
-  "statusBar.foreground",
-];
-
 async function clearColor(): Promise<void> {
-  const config = vscode.workspace.getConfiguration("workbench");
-  const existing =
-    config.get<Record<string, unknown>>("colorCustomizations") ?? {};
-
-  const cleaned: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(existing)) {
-    if (!MANAGED_KEYS.includes(key)) {
-      cleaned[key] = value;
-    }
-  }
-
-  const target =
-    Object.keys(cleaned).length > 0 ? cleaned : undefined;
-  await config.update(
-    "colorCustomizations",
-    target,
-    vscode.ConfigurationTarget.Workspace,
-  );
+  await clearManagedKeys(null);
 }
 
 async function handleBranchChange(
